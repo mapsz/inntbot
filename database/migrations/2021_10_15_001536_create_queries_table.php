@@ -17,8 +17,8 @@ class CreateQueriesTable extends Migration
             $table->id();
             $table->char('name');
             $table->char('link');
-            $table->text('response');
-            $table->integer('status');
+            $table->text('response')->nullable();
+            $table->integer('status')->nullable();
             $table->timestamps();
         });
     }

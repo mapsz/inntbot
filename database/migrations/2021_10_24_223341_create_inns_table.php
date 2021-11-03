@@ -17,7 +17,6 @@ class CreateInnsTable extends Migration
             $table->id();
             $table->bigInteger('inn')->unique();
             $table->tinyInteger('isEntity');
-            $table->tinyInteger('status')->default(0);
             $table->timestamps();
         });
     }

@@ -15,29 +15,12 @@ use App\Inn;
 class EgrulNalog extends Task{
 
 
-    public function run($metas){
+    public function parse($inn = false){
+
+      dump("parse");
+
+      if($inn == false) $inn = $this->getInn();
       
-      //Refresh errors
-      $this->refreshError();
-
-      //Get Inn
-      if(!isset($metas['inn'])){
-        $this->error = 'no Inn';
-        return 0;
-      }
-      $inn = $metas['inn'];
-
-      //Parse
-      $fileName = $this->parse($inn);
-      if(!$fileName) return 0;
-
-      // $this->pdfDecode($fileName);
-
-      return 1;
-      
-    }
-
-    public function parse($inn){
       //Client
       $client = new Client([
         'base_uri' => 'http://egrul.nalog.ru',
@@ -47,8 +30,6 @@ class EgrulNalog extends Task{
         $cookies = new CookieJar;
         $r = Parse::parseRequest($client, 'GET', 'https://egrul.nalog.ru', ['cookies' => $cookies], 'getCookie');
       }   
-
-      dd(11,$cookies);
       
       {//Post Inn
         $pr = Parse::parseRequest($client, 'POST', 'https://egrul.nalog.ru', [
@@ -91,9 +72,8 @@ class EgrulNalog extends Task{
           return 0;
         }
       }
-      
-      
-      {//Post token  
+            
+      {//Get Post token
         //Check token in data
         if(!isset( $pcon->t)){
           $this->error = 'Get post token no token';
@@ -125,25 +105,34 @@ class EgrulNalog extends Task{
       }
         
       {//Refresh required before download
-        $rr = Parse::parseRequest($client, 'GET', "https://egrul.nalog.ru/vyp-request/$getToken", [
+        $rr = Parse::parseRequest($client, 'GET', "https://egrul.nalog.ru", [
           'cookies' => $cookies,
         ], 'refreshBeforeDownload');
+        $rr = Parse::parseRequest($client, 'GET', "https://egrul.nalog.ru/vyp-request/$getToken", [
+          'cookies' => $cookies,
+        ], 'refreshBeforeDownloadWithToken');
       }
   
-      //Get file
-      $fileName = storage_path(time() . '.pdf');
-      $rf = Parse::parseRequest($client, 'GET', "https://egrul.nalog.ru/vyp-download/$getToken", [
-        'cookies' => $cookies,
-        'sink' => $fileName
-      ], 'getFile');
+      
+      {//Get file
+        $fileName = storage_path(time() . '.pdf');
+        $rf = Parse::parseRequest($client, 'GET', "https://egrul.nalog.ru/vyp-download/$getToken", [
+          'cookies' => $cookies,
+          'sink' => $fileName
+        ], 'getFile');
+        if(!$rf) return 0;
+      }
+
+
+      dump('filename - ' . $fileName);
 
       return $fileName;
         
     }
 
-    // private function pdfDecode($fileName){
-    public function pdfDecode($fileName){
-      $fileName = 'c:\OpenServer\domains\inntbot.loc\storage\1635154795.pdf';
+    public function decode($fileName){
+
+      dump('Decode');
             
       {//Get text from file
         // Parse pdf file and build necessary objects.
@@ -164,11 +153,10 @@ class EgrulNalog extends Task{
         $exists = $text;
         $exists = self::clean($exists);
 
-        if(strpos($exists, 'не является индивидуальным  предпринимателем') !== false){
-          $this->error = 'bad Inn';
-          return 0;
+        if(strpos($exists, 'не является индивидуальным  предпринимателем') !== false){          
+          return $this->setError('bad Inn');;
         }
-
+        dump('Exists');
       }
         
       {//Check type
@@ -188,21 +176,22 @@ class EgrulNalog extends Task{
       }
       
       {//Get Attributes
-        dump($type);
+        dump('type - ' . $type);
         $attributes = [];
         $attributes = $type == 'fiz' ? $this->textToAttributesFiz($text) : $this->textToAttributesJur($text);
 
-        if(!$attributes) return 0;
+        if(!$attributes || count($attributes) < 1){
+          $this->error = 'Bad Attributes';
+          return 0;
+        } 
       }
 
+      return $attributes;
 
-      Inn::make($attributes['inn'], $attributes);
+    }
 
-      // $details  = $pdf->getDetails();
-      // dd($text, $attributes);
-      dd(11);
-      // dd($attributes, $text);
-
+    public function saveData($data){
+      return Inn::DBUpdate($this->getInn(), $data);
     }
 
     private function textToAttributesFiz($text){
@@ -304,10 +293,35 @@ class EgrulNalog extends Task{
     }
 
     private function textToAttributesJur($text){
-      $this->error = 'Jur to do';
-      return 0;
-    }
 
+      $text = $this->clean($text);
+      $attr = [];
+
+      {//Svedenie ob uchastnikah
+        //Get svedenija
+        preg_match("`Сведения об участниках / учредителях юридического лица(.*?)Сведения об учете в налоговом органе`", $text, $str);
+        {//Get Inns
+          if(isset($str[1]) && $str[1] != ""){
+            preg_match_all("`ИНН ([0-9]*)`", $str[1], $inns);          
+            if(isset($inns[1]) && isset($inns[1][0]) && $inns[1][0] > 0){
+              $attr['members'] = $inns[1];
+            }          
+          }
+        }
+      }
+
+      //Full Name
+      if(preg_match("`Полное наименование на русском языке {0,2}(.*?) {0,2}[0-9] ГРН и дата внесения`", $text, $name)){
+        $attr['full_name'] = $name[1];
+      }
+
+      //Name
+      if(preg_match("`Сокращенное наименование на русском {0,2}языке {0,2}(.*?) {0,2}[0-9] ГРН и дата внесения`", $text, $name)){
+        $attr['name'] = $name[1];
+      }      
+
+      return $attr;
+    }
 
     private static function getAttr($text, $start, $startNumber, $end = false, $endNumber = 0){
 

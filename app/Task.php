@@ -6,8 +6,23 @@ use Illuminate\Database\Eloquent\Model;
 
 class Task extends Model
 {
+
   
-  private $inn = [];
+  function __construct($metas = false) {
+    if(is_array($metas) && isset($metas['inn'])){
+      $this->setInn($metas['inn']);
+    }
+    if(is_int($metas)){
+      $this->setInn($metas);
+    }
+    if(is_string($metas)){
+      $this->setInn($metas);
+    }
+  }
+  
+  private $inn;
+  public function getInn(){return $this->inn;}
+  private function setInn($inn){$this->inn = $inn;}
 
   //Errors
   private $error = null;
@@ -17,52 +32,72 @@ class Task extends Model
   public function getError(){
     return $this->error;
   }
+  public function setError($err ){
+    $this->error = $err;
+    return false;
+  }
   //Metas
   private $metas = [];
   private function getMetas(){return $this->metas;}
   private function setMetas($metas){$this->metas = $metas;}
   
 
-  function __construct($metas) {
-    $this->setMetas($metas);
-  }
 
   public function run(){
     
     $metas = $this->getMetas();
 
     //Get Inn
-    if(!isset($metas['inn'])){
-      $this->error = 'no Inn';
+    $inn = $this->getInn();
+    if(!$inn){
+      $this->setError('no inn');
       return 0;
     }
-    $inn = $metas['inn'];
+    
+    {//Parse
+      $this->refreshError();
+      $parse = $this->parse($inn);
+      if(!$parse || $parse == ""){
+        if($this->getError() == null) $this->setError('no parse');
+        return 0;
+      }
+    }
+        
+    {//Decode
+      $this->refreshError();
+      $data = $this->decode($parse);
+      if(!$data || $data == ""){
+        if($this->getError() == null) $this->setError('no Decode data');
+        return 0;
+      }
+    }
 
-    $inn = 780604379335; // @@@ todo
+    {//Save
+      $this->refreshError();
+      $save = $this->saveData($data);
+      if(!$save){
+        if($this->getError() == null) $this->setError('save data error');
+        return 0;
+      }
+    }
 
-    //Parse
-    $parse = $this->parse($inn);
-    if(!$parse) return 0;
-
-    $inns = $this->decode($parse);
-
-    return $inns;
+    return true;
 
   }
 
 
   public function saveData($data){
-
-
+    return true;
   }
 
 
   public static function clean($str){
-    return str_replace(["\r", "\n", "\t"],'',$str);
+    $str = str_replace(["\r", "\n", "\t"],' ',$str);    
+    return str_replace("   ",' ',$str);
   }
 
   public function metas(){
-      return $this->hasMany(TaskMeta::class);
-  }
+    return $this->morphMany(Meta::class, 'metable');
+  }  
 
 }

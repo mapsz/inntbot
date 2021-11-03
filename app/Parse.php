@@ -14,8 +14,27 @@ class Parse extends Model{
 
   public static function parseRequest($client, $method, $link, $params, $name = -1){
     
+    {//Log Query
+      $q = new Query;
+      $q->link = $link;
+      $q->name = $name == -1 ? $link : $name;
+    };
+    
     {//Request
-      $request = $client->request($method, $link, $params);
+      $a = false;
+      try {
+        $request = $client->request($method, $link, $params);
+      } catch (\Exception $e) {
+        if(strpos($e->getMessage(), 'truncated...')){
+          $q->status  = -1;
+          $q->response = 'truncated';
+          $q->save();
+          return 0;
+        }
+
+        return 0;
+      }
+      
       $response = (string) $request->getBody();
     }    
     
@@ -31,14 +50,11 @@ class Parse extends Model{
       }
     }
 
-    {//Log Query
-      $q = new Query;
-      $q->link = $link;
+    {//Log Result
       $q->status = $request->getStatusCode();
-      $q->name = $name == -1 ? $link : $name;
       $q->response = $response;
       $q->save();
-    };
+    }
 
     return $request;
   }

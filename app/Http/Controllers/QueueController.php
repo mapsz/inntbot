@@ -79,4 +79,10 @@ class QueueController extends Controller
     }
 
   }
+
+  public function addWork(Request $request){
+
+
+
+  }
 }

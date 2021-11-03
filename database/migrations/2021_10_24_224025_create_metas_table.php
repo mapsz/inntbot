@@ -18,7 +18,7 @@ class CreateMetasTable extends Migration
             $table->bigInteger('metable_id')->unsigned();
             $table->char('metable_type',50);
             $table->char('name',50);
-            $table->char('value',50);
+            $table->string('value',700);
             $table->timestamps();
         });
     }

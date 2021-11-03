@@ -16,8 +16,8 @@ class CreateLogsTable extends Migration
         Schema::create('logs', function (Blueprint $table) {
             $table->id();
             $table->char('name');
-            $table->tinyInteger('status');
-            $table->char('result');
+            $table->tinyInteger('status')->nullable();
+            $table->char('result')->nullable();
             $table->bigInteger('task_id');
             $table->timestamps();
         });
