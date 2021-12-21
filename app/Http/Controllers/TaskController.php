@@ -15,50 +15,23 @@ class TaskController extends Controller
   public function put(Request $request){
 
     {//Get Site Name
-      if(
-        !isset($request->site) || $request->site == '' ||
-        !isset($request->name) || $request->name == ''
-      ){
+      if(!isset($request->name) || $request->name == ''){
         return false;
       }        
-      $site = $request->site;
-      $name = $request->name;
     }
 
     
-    {//Get Meta 
-      $metas = $request->all();
-      unset($metas['site']);
-      unset($metas['name']);
-    }
-    
 
-    {//Make task
-      $task = new Task;
-      $task->site = $site;
-      $task->name = $name;
-      $task->status = 0;
-      $task->save();
-    }
+    Task::add($request->name);
 
-    //Add metas
-    foreach ($metas as $key => $value) {
-
-      DB::table('task_metas')->insert([
-        'task_id'     => $task->id,
-        'name'        => $key,
-        'value'       => $value
-      ]);
-
-    }
-
-    $task = Task::with('metas')->where('id', $task->id)->first();
-
-    // dd($task);
-
-    // return $task;   
+    return response()->json(1, 200);
 
   }
 
+
+  public function task(Request $request){
+
+    dd(11);
+  }
 
 }

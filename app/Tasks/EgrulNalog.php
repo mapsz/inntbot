@@ -14,6 +14,7 @@ use App\Inn;
 
 class EgrulNalog extends Task{
 
+    private $captchaDelay = 5;
 
     public function parse($inn = false){
 
@@ -28,7 +29,7 @@ class EgrulNalog extends Task{
       
       {//Get cookie
         $cookies = new CookieJar;
-        $r = Parse::parseRequest($client, 'GET', 'https://egrul.nalog.ru', ['cookies' => $cookies], 'getCookie');
+        $r = Parse::parseRequest($client, 'GET', 'https://egrul.nalog.ru', ['cookies' => $cookies], 'getCookie', $this->getProxy());
       }   
       
       {//Post Inn
@@ -48,8 +49,8 @@ class EgrulNalog extends Task{
               'PreventChromeAutocomplete' => '',
             ],
             'http_errors' => false,
-        ], 'postInn');
-        $pcon = (string) $pr->getBody();          
+        ], 'postInn', $this->getProxy());
+        $pcon = (string) $pr->getBody();
         $pcon = json_decode($pcon);
   
         //Check json
@@ -85,7 +86,7 @@ class EgrulNalog extends Task{
       {//Get token
         $rg = Parse::parseRequest($client, 'GET', "https://egrul.nalog.ru/search-result/$postToken", [
           'cookies' => $cookies
-        ], 'getToken');
+        ], 'getToken', $this->getProxy());
         $gcon = (string) $rg->getBody();
         $gcon = json_decode($gcon);
 
@@ -107,24 +108,32 @@ class EgrulNalog extends Task{
       {//Refresh required before download
         $rr = Parse::parseRequest($client, 'GET', "https://egrul.nalog.ru", [
           'cookies' => $cookies,
-        ], 'refreshBeforeDownload');
-        $rr = Parse::parseRequest($client, 'GET', "https://egrul.nalog.ru/vyp-request/$getToken", [
+        ], 'refreshBeforeDownload', $this->getProxy());
+        $rr2 = Parse::parseRequest($client, 'GET', "https://egrul.nalog.ru/vyp-request/$getToken", [
           'cookies' => $cookies,
-        ], 'refreshBeforeDownloadWithToken');
+        ], 'refreshBeforeDownloadWithToken', $this->getProxy());
       }
-  
-      
+        
       {//Get file
         $fileName = storage_path(time() . '.pdf');
         $rf = Parse::parseRequest($client, 'GET', "https://egrul.nalog.ru/vyp-download/$getToken", [
           'cookies' => $cookies,
           'sink' => $fileName
-        ], 'getFile');
-        if(!$rf) return 0;
-      }
+        ], 'getFile', $this->getProxy());
 
+        
+        {//Retry
+          if(filesize($fileName) < 1000){
+            dump('file retry, filesize < 1000  - ' . filesize($fileName));
+            $rf = Parse::parseRequest($client, 'GET', "https://egrul.nalog.ru/vyp-download/$getToken", [
+              'cookies' => $cookies,
+              'sink' => $fileName
+            ], 'getFile', $this->getProxy());
+          }
+        }
+      }     
 
-      dump('filename - ' . $fileName);
+      dump('filename - ' . $fileName . ' size - ' . filesize($fileName));
 
       return $fileName;
         
@@ -133,6 +142,13 @@ class EgrulNalog extends Task{
     public function decode($fileName){
 
       dump('Decode');
+      dump($fileName);
+      dump('file size ' . filesize($fileName));
+
+      if(filesize($fileName) < 1000){
+        $this->error = 'bad File';
+        return 0;
+      }
             
       {//Get text from file
         // Parse pdf file and build necessary objects.
@@ -152,12 +168,11 @@ class EgrulNalog extends Task{
       {//Check Inn exists
         $exists = $text;
         $exists = self::clean($exists);
-
-        if(strpos($exists, 'не является индивидуальным  предпринимателем') !== false){          
-          return $this->setError('bad Inn');;
+        if(strpos($exists, 'не является индивидуальным  предпринимателем') !== false){
+          return ['no egrul data' => true];
         }
-        dump('Exists');
       }
+        
         
       {//Check type
         $type = false;
@@ -219,7 +234,7 @@ class EgrulNalog extends Task{
       
       {//Register Date
         $buffer = self::getAttr($text, 'Сведения о регистрации индивидуального предпринимателя', 100);
-        $attributes['registerDate'] = self::getAttr(
+        $attributes['DataRegistracii'] = self::getAttr(
           $buffer, 'Дата регистрации', 32, 'Сведения о регистрирующем органе по месту ж', 2
         );
       }    
@@ -286,7 +301,6 @@ class EgrulNalog extends Task{
 
       }
 
-      dd( $attributes);
 
       return $attributes;
 

@@ -13,6 +13,8 @@ use App\Inn;
 
 class RusProfile extends Task{
 
+  public function getCaptchaDelay(){return 60;}
+
   public function parse($inn){
     
     //Client
@@ -21,7 +23,10 @@ class RusProfile extends Task{
     ]);  
     
     {//Parse
-      $r = Parse::parseRequest($client, 'GET', "https://www.rusprofile.ru/search?query=$inn", [], 'getCookie');
+      $r = Parse::parseRequest($client, 'GET', "https://www.rusprofile.ru/search?query=$inn", [], 'getData', $this->getProxy());      
+      if(!$r){
+        return 0;
+      } 
     }
 
     return (string) $r->getBody();
@@ -44,7 +49,7 @@ class RusProfile extends Task{
           foreach ($dom->childNodes as $child) {
             $val = $child->nodeValue;
             if(strpos($val, 'ИНН') !== false){
-              $inn = str_replace('ИНН','',$val);
+              $inn = str_replace(['ИНН'," "],'',$val);
               array_push($inns, $inn);
             }
           }
@@ -53,6 +58,10 @@ class RusProfile extends Task{
     }
 
     return $inns;
+  }
+
+  public function saveData($data){
+    return Inn::DBUpdate($this->getInn(), ['memberIn' => $data]);
   }
 
 }

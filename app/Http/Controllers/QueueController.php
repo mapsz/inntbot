@@ -7,9 +7,34 @@ use Illuminate\Http\Request;
 use App\Log;
 use App\Task;
 use App\TaskMeta;
+use App\Queue;
 
 class QueueController extends Controller
 {
+
+  public function doActualTask(Request $request){
+    Queue::doActualTask();
+  }
+
+  public function addWork(Request $request){
+
+    {//Get data
+      if(!isset($request->work) || $request->work == ''){
+        return false;
+      }        
+      if(!isset($request->inn) || !$request->inn){
+        return false;
+      }        
+    }
+
+    Queue::addWork($request->work, $request->inn);
+
+    return response()->json(1, 200);
+
+  }
+
+  
+
   public function runTask(Request $request){
 
     {//Get task
@@ -77,12 +102,6 @@ class QueueController extends Controller
       $task->save();
 
     }
-
-  }
-
-  public function addWork(Request $request){
-
-
 
   }
 }

@@ -13,26 +13,6 @@ use App\Inn;
 
 class ZaChestnyiBiznes extends Task{
 
-  public function run($metas){
-    
-    //Get Inn
-    if(!isset($metas['inn'])){
-      $this->error = 'no Inn';
-      return 0;
-    }
-    $inn = $metas['inn'];
-
-    $inn = 780604379335; // @@@ todo
-
-    //Parse
-    $parse = $this->parse($inn);
-    if(!$parse) return 0;
-
-    $inns = $this->decode($parse);
-
-    return $inns;
-
-  }
 
   public function parse($inn){
     //Client
@@ -65,7 +45,8 @@ class ZaChestnyiBiznes extends Task{
           'upgrade-insecure-requests' => '1',
           'User-Agent' => 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/95.0.4638.69 Safari/537.36',
       ],
-    ], 'refreshBeforeDownload');
+    ], 'getData');
+    if(!$rr) return 0;
 
     return (string) $rr->getBody();
 
@@ -102,6 +83,10 @@ class ZaChestnyiBiznes extends Task{
     }
 
     return $inns;
+  }
+
+  public function saveData($data){
+    return Inn::DBUpdate($this->getInn(), ['memberIn' => $data]);
   }
 
 

@@ -8,20 +8,26 @@ class Meta extends Model
 {
   public $guarded = [];
 
-  // public static function beautify($metas){
+  public static function beautify($metas){
 
-  //   $fMetas = [];
-  //   foreach ($metas as $key => $value) {
-  //     $fMetas[$key] = $value;
-  //   }
+    $fMetas = [];
+    foreach ($metas as $key => $value) {
+      $fMetas[$key] = $value;
+    }
     
-  //   return $fMetas;
+    return $fMetas;
 
-  // }
+  }
 
-  public static function get($metas, $toGet){
+  public static function get($metas, $toGet, $full = false){
     foreach ($metas as $key => $meta) {
-      if($meta['name'] == $toGet) return $meta['value'];
+      if($meta['name'] == $toGet){
+        if($full){
+          return $meta;
+        }else{
+          return $meta['value'];
+        }        
+      } 
     }
   }
   
